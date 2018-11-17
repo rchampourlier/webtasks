@@ -301,7 +301,7 @@ app.post('/', function(req, res) {
                 });
               } else {
                 // Updated card already in the "Scheduled" list
-                //webtaskCall(ctx, "trello.sort_by_due", { "board_id": boardID, "list_id": scheduledListID }, (d) => { log(d); }, (d) => { log(d); } );
+                webtaskCall(ctx, "trello.sort_by_due", { "board_id": boardID, "list_id": scheduledListID }, (d) => { log(d); }, (d) => { log(d); } );
               }
             }
           });
@@ -329,7 +329,7 @@ app.post('/', function(req, res) {
       scheduledListID = body.action.data.listAfter.id;
 
       // Trigger sort of "Scheduled" list by due date
-      //webtaskCall(ctx, "trello.sort_by_due", { "board_id": boardID, "list_id": scheduledListID }, (d) => { log(d); }, (d) => { log(d); } );
+      webtaskCall(ctx, "trello.sort_by_due", { "board_id": boardID, "list_id": scheduledListID }, (d) => { log(d); }, (d) => { log(d); } );
     }
 
     break;
