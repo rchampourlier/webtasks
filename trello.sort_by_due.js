@@ -42,6 +42,11 @@ var _ = require('lodash');
  HELPER FUNCTIONS
 \****************************************/
 
+const WEBTASK_NAME = 'trello.sort_by_due';
+var log = (msg) => {
+  console.log(WEBTASK_NAME + '  -- ' + msg);
+};
+
 var serializeQueryString = obj => {
   var str = [];
   for (var p in obj)
@@ -97,7 +102,7 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
 \****************************************/
 
 app.head('/', function(req, res) {
-  console.log('HEAD /');
+  log('HEAD /');
   res.sendStatus(200);
 });
 
@@ -117,7 +122,7 @@ app.post('/', function(req, res) {
 
     // Listing cards and positions
     cards.forEach( (currentCard) => {
-      console.log(currentCard.name + " / " + currentCard.due + " --> " + currentCard.pos);
+      log(currentCard.name + " / " + currentCard.due + " --> " + currentCard.pos);
     });
 
     cards.forEach( (currentCard, index) => {
@@ -142,13 +147,13 @@ app.post('/', function(req, res) {
           newPos = (posOfNextTargetCard + cards[indexOfNextTargetCard - 1].pos) / 2;
         }
         trelloAPICall(ctx, "PUT", "/1/cards/" + currentCard.id, { "pos": newPos }, (successData) => {
-          console.log("Moved card `" + currentCard.name + "`: success (" + successData + ")");
+          log("Moved card `" + currentCard.name + "`: success (" + successData + ")");
         }, (errorData) => {
-          console.log("Moved card `" + currentCard.name + "`: success (" + errorData + ")");
+          log("Moved card `" + currentCard.name + "`: success (" + errorData + ")");
         });
       }
     });
-  }, (error) => { console.log("error: " + error); });
+  }, (error) => { log("error: " + error); });
 
   res.sendStatus(200);
 });
