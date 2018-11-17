@@ -8,10 +8,6 @@ Webtask is handling the HTTP endpoint, the code execution, the secrets managemen
 
 ## Automate?
 
-### `sandbox.trello`
-
-A sandbox you can use to fetch you Trello boards, cards, lists IDs, setup webhooks, etc.
-
 ### `trello.copy_card`
 
 A webtask exposing an endpoint to copy a Trello card.
@@ -20,9 +16,13 @@ A webtask exposing an endpoint to copy a Trello card.
 
 A more personal and complex workflow, updating the card's due date when adding a given label to the card. I use it to implement a CRM-like board on Trello, but you could use this as a base for your own personal workflow.
 
-### `trello.scheduled`
+### `trello.sandbox`
 
-Keeps the "Scheduled" list of a Trello board sorted by due date (ascending).
+A sandbox you can use to fetch you Trello boards, cards, lists IDs, setup webhooks, etc.
+
+### `trello.gtd.scheduled`
+
+Keeps the list named "Scheduled" of a Trello board sorted by due date (ascending). Useful to build a GTD board.
 
 ### `trello.sort_by_due`
 
