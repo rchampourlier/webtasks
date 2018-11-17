@@ -23,13 +23,15 @@
 // 01. Card created in "Scheduled" list --> set due date to the due 
 //     date of the card above or today if first in the list
 //
-// 02. Due date added or changed --> move to "Scheduled" list if not already
-//     + trigger keep sorted
+// 02. Due date added or changed --> move to "Scheduled" list
+//     below last card with due date earlier
 //
 // 03. Due date removed --> move to "Tasks" with "asap" label
 //
 // 04. Card moved from the "Scheduled" list --> remove due date, add 
 //     "asap" label
+//
+// 05. Card move to the "Scheduled" list --> trigger sort by due date
 //
 // TODOs
 //   - Add "asap" label
@@ -48,6 +50,11 @@ var _ = require('lodash');
 /****************************************\
  HELPERS
 \****************************************/
+
+const WEBTASK_NAME = 'trello.scheduled';
+var log = (msg) => {
+  console.log(WEBTASK_NAME + '  -- ' + msg);
+};
 
 var todayAsString = () => {
   var today = new Date();
@@ -79,6 +86,7 @@ var noop = () => {};
  PERFORM WEBTASKS CALLS
 \****************************************/
 var webtaskCall = (ctx, name, payload, onSuccess, onError) => {
+  log('trigger webtask `' + name + '`');
   var webtaskHost = ctx.secrets.webtask_host;
   var payload_data = "";
   var headers = {
@@ -162,7 +170,7 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
 \****************************************/
 
 app.head('/', function(req, res) {
-  console.log('HEAD /');
+  log('HEAD /');
   res.sendStatus(200);
 });
 
@@ -172,8 +180,6 @@ app.post('/', function(req, res) {
   // Main workflow code
   const body = req.body;
   const actionType = body.action.type;
-  console.log('actionType:');
-  console.log(actionType);
 
   // Action types are documented here:
   //   [Trello reference](https://developers.trello.com/v1.0/reference#action-types)
@@ -202,9 +208,9 @@ app.post('/', function(req, res) {
               if (index === 0) {
                 // If the card is first, set due date to today
                 trelloAPICall(ctx, "PUT", "/1/cards/" + cardID, { "due": todayAsString() }, (successData) => {
-                  console.log("Update created card to set due to today: success (" + successData + ")");
+                  log("Update created card to set due to today: success (" + successData + ")");
                 }, (errorData) => {
-                  console.log("Update created card to set due to today: error (" + errorData + ")");
+                  log("Update created card to set due to today: error (" + errorData + ")");
                 });
               } else {
                 // Fetch the card above
@@ -214,31 +220,32 @@ app.post('/', function(req, res) {
                   var previousCard = JSON.parse(getCardsData);
                   // Setting the created card due to the previous card's
                   trelloAPICall(ctx, "PUT", "/1/cards/" + cardID, { "due": previousCard.due }, (putCardData) => {
-                    console.log("Update created card to set due to previous card's: success (" + putCardData + ")");
+                    log("Update created card to set due to previous card's: success (" + putCardData + ")");
                   }, (errorData) => {
-                    console.log("Update created card to set due to previous card's: error (" + errorData + ")");
+                    log("Update created card to set due to previous card's: error (" + errorData + ")");
                   });
                 }, (errorData) => {
-                  console.log("Fetch previous card: error (" + errorData + ")");
+                  log("Fetch previous card: error (" + errorData + ")");
                 });
               }
             }
           });
           // Else loop until card is the next one and set due date to the current card's
-        }, (listCardsError) => { console.log("error: " + listCardsError);});
+        }, (listCardsError) => { log("error: " + listCardsError);});
       }
       // Else: do nothing.
     }, (listError) => {
       // error callback
-      console.log("error: " + listError);
+      log("error: " + listError);
     });
     break;
 
-    // 02. Due date added or changed --> move to "Scheduled" list if not already
-    //     + trigger keep sorted
+    // 02. Due date added or changed --> move to "Scheduled" list
+    //     below last card with due date earlier
     // 03. Due date removed --> move to "Tasks" with "asap" label
     // 04. Card moved from the "Scheduled" list --> remove due date, add 
     //     "asap" label
+    // 05. Card moved to the "Scheduled" list --> trigger sort by due date
     case 'updateCard':
     boardID = body.model.id;
     cardID = body.action.data.card.id;
@@ -264,19 +271,19 @@ app.post('/', function(req, res) {
                   ctx, "PUT", "/1/cards/" + cardID,
                   { "idList": nextActionListID, "pos": "top" }, // TODO: add "asap" label
                   (successData) => {
-                    console.log("Move updated card to the \"Next action\" list: success (" + successData + ")");
+                    log("move updated card to the \"Next action\" list: success (" + successData + ")");
                   }, (errorData) => {
-                    console.log("Move updated card to the \"Next action\" list: error (" + errorData + ")");
+                    log("move updated card to the \"Next action\" list: error (" + errorData + ")");
                 });
               }
             }
           });
-        }, (errorData) => { console.log("Failed to fetch lists: " + errorData); } );
+        }, (errorData) => { log("failed to fetch lists: " + errorData); } );
       }
 
       else {
         // Case 02 - Due data added or changed
-        // Move to "Scheduled" list
+        // Move to "Scheduled" list at the correct position (below last card with due date earlier)
         var scheduledListID;
 
         // Find "Scheduled" list
@@ -288,18 +295,17 @@ app.post('/', function(req, res) {
               if (listID !== scheduledListID) {
                 // Move the updated card to the found list
                 trelloAPICall(ctx, "PUT", "/1/cards/" + cardID, { "idList": scheduledListID }, (successData) => {
-                  console.log("Move updated card to the \"Scheduled\" list: success (" + successData + ")");
-                  webtaskCall(ctx, "trello.sort_by_due", { "board_id": boardID, "list_id": scheduledListID }, noop, noop );
+                  log("move updated card to the \"Scheduled\" list: success (" + successData + ")");
                 }, (errorData) => {
-                  console.log("Move updated card to the \"Scheduled\" list: error (" + errorData + ")");
+                  log("move updated card to the \"Scheduled\" list: error (" + errorData + ")");
                 });
               } else {
                 // Updated card already in the "Scheduled" list
-                webtaskCall(ctx, "trello.sort_by_due", { "board_id": boardID, "list_id": scheduledListID }, noop, noop );
+                //webtaskCall(ctx, "trello.sort_by_due", { "board_id": boardID, "list_id": scheduledListID }, (d) => { log(d); }, (d) => { log(d); } );
               }
             }
           });
-        }, (errorData) => { console.log("Failed to fetch lists: " + errorData); } );
+        }, (errorData) => { log("failed to fetch lists: " + errorData); } );
       }
     }
 
@@ -310,10 +316,20 @@ app.post('/', function(req, res) {
 
       // Remove card's due date
       trelloAPICall(ctx, "PUT", "/1/cards/" + cardID, { "due": null }, (putCardData) => {
-        console.log("Update created card to set due to previous card's: success (" + putCardData + ")");
+        log("Update created card to set due to previous card's: success (" + putCardData + ")");
       }, (errorData) => {
-        console.log("Update created card to set due to previous card's: error (" + errorData + ")");
+        log("Update created card to set due to previous card's: error (" + errorData + ")");
       });
+    }
+
+    // 05. Card moved to the "Scheduled" list --> trigger sort by due date
+    if (body.action.data.listAfter !== undefined && body.action.data.listAfter.name === "Scheduled") {
+      // Card moved to "Scheduled" list
+
+      scheduledListID = body.action.data.listAfter.id;
+
+      // Trigger sort of "Scheduled" list by due date
+      //webtaskCall(ctx, "trello.sort_by_due", { "board_id": boardID, "list_id": scheduledListID }, (d) => { log(d); }, (d) => { log(d); } );
     }
 
     break;
