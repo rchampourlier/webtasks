@@ -14,13 +14,13 @@
 const https = require('https');
 const _ = require('lodash');
 
-var serializeQueryString = (obj) => {
+var serializeQueryString = obj => {
   var str = [];
-  for(var p in obj)
+  for (var p in obj)
     if (obj.hasOwnProperty(p)) {
-      str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
+      str.push(encodeURIComponent(p) + '=' + encodeURIComponent(obj[p]));
     }
-  return str.join("&");
+  return str.join('&');
 };
 
 var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
@@ -39,28 +39,30 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
     hostname: 'api.trello.com',
     port: 443,
     path: path,
-    method: verb
+    method: verb,
   };
 
-  const req = https.request(options, (res) => {
+  const req = https.request(options, res => {
     var dataStr = '';
-    res.on('data', (chunk) => {
+    res.on('data', chunk => {
       dataStr += chunk;
     });
 
-    res.on('end', function () {
+    res.on('end', function() {
       onSuccess(dataStr);
     });
   });
 
-  req.on('error', (e) => {
+  req.on('error', e => {
     onError(e);
   });
 
   req.end();
 };
 
-const log = (data) => { console.log(data); };
+const log = data => {
+  console.log(data);
+};
 
 /**
 * @param context {WebtaskContext}
@@ -72,7 +74,7 @@ module.exports = function(ctx, cb) {
   // List a board's lists
   //trelloAPICall(ctx, 'GET', '/1/boards/' + 'BOARD_ID' + '/lists', {}, log, log );
 
-  // List a list's cards  
+  // List a list's cards
   //trelloAPICall(ctx, 'GET', '/1/lists/' + 'LIST_ID' + '/cards', {}, log, log );
 
   // Copy a card at the top of a list
@@ -95,6 +97,9 @@ module.exports = function(ctx, cb) {
 
   // List webhooks
   //trelloAPICall(ctx, 'GET', '/1/tokens/' + ctx.secrets.api_token + '/webhooks', {}, log, log);
+
+  // Update webhook
+  //trelloAPICall(ctx, 'PUT', '/1/webhooks/' + 'WEBHOOK_ID', {callbackURL: 'NEW_URL'}, log, log);
 
   // Delete webhook
   //trelloAPICall(ctx, 'DELETE', '/1/webhooks/' + 'WEBHOOK_ID', {}, log, log);
