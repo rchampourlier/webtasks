@@ -117,41 +117,29 @@ app.post('/', function(req, res) {
   // Fetch the list's cards
   trelloAPICall(ctx, "GET", "/1/lists/" + listID + "/cards", {}, (data) => {
     var cards = JSON.parse(data);
-    // We'll be doing a bubble sort since there will often (always?) be only
-    // one card in a wrong position.
+    var minPos = cards[0].pos;
+    var maxPos = cards[cards.length - 1].pos;
 
-    // Listing cards and positions
-    cards.forEach( (currentCard) => {
-      log(currentCard.name + " / " + currentCard.due + " --> " + currentCard.pos);
+    // Sorting
+
+    // Sort in JS on due date
+    cards.sort( (a, b) => {
+      if (a.due < b.due) {
+        return -1;
+      } else if (a.due > b.due) {
+        return 1;
+      }
+      return 0;
     });
 
+    // Once sorted, iterate over the sorted array and set the pos to:
+    // minPos + i * (maxPos - minPos) / (len(array) - 1)
     cards.forEach( (currentCard, index) => {
-      if (index === 0) {
-        // Skip the first
-        return;
-      }
-      // Bubble the current card up as needed
-      var posOfNextTargetCard, indexOfNextTargetCard; // the "pos" and index of the card that should be directly below current
-      for (var i = index - 1; i >= 0; i--) {
-        var previousCard = cards[i];
-        if (currentCard.due < previousCard.due) {
-          indexOfNextTargetCard = i;
-          posOfNextTargetCard = previousCard.pos;
-        }
-      }
-      var newPos;
-      if (indexOfNextTargetCard !== undefined) {
-        if (indexOfNextTargetCard === 0) {
-          newPos = posOfNextTargetCard / 2;
-        } else {
-          newPos = (posOfNextTargetCard + cards[indexOfNextTargetCard - 1].pos) / 2;
-        }
-        trelloAPICall(ctx, "PUT", "/1/cards/" + currentCard.id, { "pos": newPos }, (successData) => {
-          log("Moved card `" + currentCard.name + "`: success (" + successData + ")");
-        }, (errorData) => {
-          log("Moved card `" + currentCard.name + "`: success (" + errorData + ")");
-        });
-      }
+      var newPos = minPos + index * (maxPos - minPos) / (cards.length - 1);
+      log("`" + currentCard.name + "`@" + currentCard.due + ": " + currentCard.pos + " --> " + newPos);
+      trelloAPICall(ctx, "PUT", "/1/cards/" + currentCard.id, { "pos": newPos }, () => {}, (errorData) => {
+        log("Moved card `" + currentCard.name + "`: success (" + errorData + ")");
+      });
     });
   }, (error) => { log("error: " + error); });
 
