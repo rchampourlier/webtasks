@@ -76,16 +76,17 @@ module.exports = function(ctx, cb) {
   log(today + ': day=' + today.getDay() + ',hours=' + today.getHours() + ',minutes=' + today.getMinutes());
   log(today.getTimezoneOffset());
 
-  // Copy example card on some board every Friday at 5pm (UTC)
+  // Copy "Weekly Review" card every Friday at 5pm
   if (
     today.getDay() === 5 && // Friday
-    today.getHours() === 17 && today.getMinutes() === 00 // 17:00 UTC
+    today.getHours() === 17 && today.getMinutes() === 0 // 17:00 UTC
   ) {
-    log('executing "Copy example card on some board"');
-    var sourceCardId = "REPLACE";
-    var targetListId = "REPLACE";
+    log('executing "Copy \"Weekly Review\" card"');
+    var sourceCardId = "5a2a99d4efd866b4be2638e2";
+    var targetListId = "5a4b40d23ae962ef641958c0";
     webtaskCall(ctx, "trello.copy_card", { "source_card_id": sourceCardId, "target_list_id": targetListId }, (d) => { log(d); }, (d) => { log(d); } );
   }
 
   cb(null, {});
 };
+
