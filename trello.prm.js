@@ -102,13 +102,13 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
 \****************************************/
 
 app.head('/', function(req, res) {
-  console.log('HEAD /');
+  console.log('trello.prm -- HEAD /');
   res.sendStatus(200);
 });
 
 app.post('/', function (req, res) {
   const ctx = req.webtaskContext;
-  console.log('POST /');
+  console.log('trello.prm -- POST /');
 
   // Main workflow code
   const body = req.body;
@@ -132,6 +132,8 @@ app.post('/', function (req, res) {
     // GET /cards/<id>
     trelloAPICall(ctx, "GET", "/1/cards/" + cardID, '',
       (data) => { // success callback
+        console.log('trello.prm -- trelloAPICall(..): ');
+        console.log(data);
         var cardData = JSON.parse(data);
         var labels = cardData.labels;
         var labelNames = labels.map( (item) => { return item.name; } );
@@ -158,14 +160,14 @@ app.post('/', function (req, res) {
         trelloAPICall(ctx, 'PUT', '/1/cards/' + cardID, {
           due: newDate.toISOString()
         }, () => {
-          console.log('Updated card ' + cardID);
+          console.log('trello.prm -- updated card ' + cardID);
         }, (error) => {
-          console.log('Could not update the card ' + cardID + '(' + error + ')');
+          console.log('trello.prm -- could not update the card ' + cardID + '(' + error + ')');
         });
       }, // end of success callback
 
       (error) => { // error callback
-        console.error("Could not fetch the card (" + error + ")");
+        console.error("trello.prm - could not fetch the card (" + error + ")");
       }); // end of error callback
   }
 
