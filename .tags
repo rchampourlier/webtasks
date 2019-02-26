@@ -1,0 +1,24 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	0	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+webtasks	/Users/claire/Documents/Developpement/webtasks/README.md	/^# webtasks$/;"	heading1	line:1
+webtasks	/Users/claire/Documents/Developpement/webtasks/README.md	/^# webtasks$/;"	function	line:1
+Automate?	/Users/claire/Documents/Developpement/webtasks/README.md	/^## Automate?$/;"	heading2	line:9
+Automate?	/Users/claire/Documents/Developpement/webtasks/README.md	/^## Automate?$/;"	function	line:9
+`trello.copy_card`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.copy_card`$/;"	heading3	line:11
+`trello.copy_card`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.copy_card`$/;"	function	line:11
+`trello.prm`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.prm`$/;"	heading3	line:15
+`trello.prm`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.prm`$/;"	function	line:15
+`trello.sandbox`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.sandbox`$/;"	heading3	line:19
+`trello.sandbox`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.sandbox`$/;"	function	line:19
+`trello.gtd.scheduled`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.gtd.scheduled`$/;"	heading3	line:23
+`trello.gtd.scheduled`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.gtd.scheduled`$/;"	function	line:23
+`trello.sort_by_due`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.sort_by_due`$/;"	heading3	line:27
+`trello.sort_by_due`	/Users/claire/Documents/Developpement/webtasks/README.md	/^### `trello.sort_by_due`$/;"	function	line:27
+How to use?	/Users/claire/Documents/Developpement/webtasks/README.md	/^## How to use?$/;"	heading2	line:31
+How to use?	/Users/claire/Documents/Developpement/webtasks/README.md	/^## How to use?$/;"	function	line:31
+Troubleshooting	/Users/claire/Documents/Developpement/webtasks/README.md	/^## Troubleshooting$/;"	heading2	line:37
+Troubleshooting	/Users/claire/Documents/Developpement/webtasks/README.md	/^## Troubleshooting$/;"	function	line:37

@@ -12,8 +12,8 @@
 // - This webtask needs to be capable of performing Trello API calls. For
 //   this, you will have to add the following secrets. You can get both
 //   [here](https://trello.com/app-key).
-//   - `trello--api_key`
-//   - `trello--api_token`
+//   - `api_key`
+//   - `api_token`
 //
 // ### Task description
 //
@@ -28,7 +28,7 @@
 //   -d '{"list_id": "REPLACE"}
 
 /****************************************\
- INITIALIZE EXPRESS APP 
+ INITIALIZE EXPRESS APP
 \****************************************/
 var express = require('express');
 var bodyParser = require('body-parser');
@@ -85,8 +85,12 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
       dataStr += chunk;
     });
 
-    res.on('end', function() {
-      onSuccess(dataStr);
+    res.on('end', function () {
+      if (res.statusCode === 200) {
+        onSuccess(dataStr);
+      } else {
+        onError(res.statusCode + ': ' + dataStr);
+      }
     });
   });
 
@@ -98,7 +102,7 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
 };
 
 /****************************************\
- EXPRESS ENDPOINTS 
+ EXPRESS ENDPOINTS
 \****************************************/
 
 app.head('/', function(req, res) {
@@ -147,7 +151,7 @@ app.post('/', function(req, res) {
 });
 
 /****************************************\
- PUBLISH EXPRESS ENDPOINTS 
+ PUBLISH EXPRESS ENDPOINTS
 \****************************************/
 var Webtask = require('webtask-tools');
 module.exports = Webtask.fromExpress(app);
