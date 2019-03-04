@@ -55,136 +55,151 @@ var serializeQueryString = (obj) => {
   return str.join("&");
 };
 
-var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
-  var defaultParams = {
-    key: ctx.secrets.api_key,
-    token: ctx.secrets.api_token,
-  };
-  params = _.merge(defaultParams, params);
-  var queryString = serializeQueryString(params);
+var trelloAPICall = (ctx, verb, path, params = {}) =>
+  new Promise((resolve, reject) => {
+    var defaultParams = {
+      key: ctx.secrets.api_key,
+      token: ctx.secrets.api_token,
+    };
+    params = _.merge(defaultParams, params);
+    var queryString = serializeQueryString(params);
 
-  if (queryString.length > 0) {
-    path += '?' + queryString;
-  }
+    if (queryString.length > 0) {
+      path += '?' + queryString;
+    }
 
-  const options = {
-    hostname: 'api.trello.com',
-    port: 443,
-    path: path,
-    method: verb
-  };
+    const options = {
+      hostname: 'api.trello.com',
+      port: 443,
+      path: path,
+      method: verb
+    };
 
-  const req = https.request(options, (res) => {
-    var dataStr = '';
-    res.on('data', (chunk) => {
-      dataStr += chunk;
+    const req = https.request(options, (res) => {
+      var dataStr = '';
+      res.on('data', (chunk) => {
+        dataStr += chunk;
+      });
+
+      res.on('end', function () {
+        if (res.statusCode >= 200 || res.statusCode <= 299) {
+          console.log(verb + ' ' + path + ' SUCCESS');
+          resolve(dataStr);
+        } else {
+          console.log(verb + ' ' + path + ' FAIL');
+          reject(res.statusCode + ': ' + dataStr);
+        }
+      });
     });
 
-    res.on('end', function () {
-      if (res.statusCode === 200) {
-        onSuccess(dataStr);
-      } else {
-        onError(res.statusCode + ': ' + dataStr);
-      }
+    req.on('error', (e) => {
+      reject(e);
     });
-  });
 
-  req.on('error', (e) => {
-    onError(e);
+    req.end();
   });
-
-  req.end();
-};
 
 /****************************************\
  WORKFLOW FUNCTIONS
 \****************************************/
+var copyCard = (ctx, cardID) =>
+  trelloAPICall(ctx, 'POST', '/1/cards/', {
+    idList: ctx.meta.target_list_ID,
+    idCardSource: cardID,
+    pos: 'top',
+    keepFromSource: ''
+  });
 
-var linkCard = (ctx, cardID1, cardID2) => {
+var linkCard = (ctx, cardID1, cardID2) =>
   trelloAPICall(ctx, 'POST', '/1/cards/' + cardID1 + '/attachments/', {
-      url: 'https://trello.com/c/' + cardID2,
-    }, () => {
-      console.log('trello.sync -- linked card ' + cardID2 + ' to card ' + cardID1);
-    }, (error) => {
-      console.log('trello.sync -- could not link card ' + cardID2 + ' to card ' + cardID1 + '(' + error + ')');
-    });
-};
+    url: 'https://trello.com/c/' + cardID2,
+  });
 
-var removeLinkCard = (ctx, cardID1, attachementID) => {
-  trelloAPICall(ctx, 'DELETE', '/1/cards/' + cardID1 + '/attachments/' + attachementID, {}
-    , () => {
-      console.log('trello.sync -- removed link ' + attachementID + ' from card ' + cardID1);
-    }, (error) => {
-      console.log('trello.sync -- could not remove link ' + attachementID + ' from card ' + cardID1 + '(' + error + ')');
-    });
-};
+var removeLinkCard = (ctx, cardID1, attachementID) =>
+  trelloAPICall(ctx, 'DELETE', '/1/cards/' + cardID1 + '/attachments/' + attachementID);
 
 // TODO: only create webhook if it doesn't exists
-var webhookCard = (ctx, cardID) => {
+var webhookCard = (ctx, cardID) =>
   trelloAPICall(ctx, 'POST', '/1/webhooks/', {
       callbackURL: ctx.meta.webhook_URL,
       idModel: cardID
-    }, () => {
-      console.log('trello.sync -- created wekhook on card card ' + cardID);
-    }, (error) => {
-      console.log('trello.sync -- could not create webhook on card ' + cardID + '(' + error + ')');
     });
-};
 
-var getWebhooksForModel = (ctx, modelID, cb) => {
-  // get attached cards
-  trelloAPICall(ctx, 'GET', '/1/tokens/' + ctx.secrets.api_token + '/webhooks', {},
-   (webhooksData) => {
-    const webhooks = JSON.parse(webhooksData);
-    const modelWebhooks = webhooks.filter(webhook => (webhook.idModel === modelID && webhook.callbackURL === ctx.meta.webhook_URL));
-    modelWebhooks.forEach(webhook => {
-      var webhookID = webhook.id;
-      cb(ctx, modelID, webhookID);
-    });
-  }, (error) => {
-    console.log('trello.sync -- could not get webhooks for ' + modelID + '(' + error + ')');
-  });
-};
+var removeWebhookCard = (ctx, webhookID) =>
+  trelloAPICall(ctx, 'DELETE', '/1/webhooks/' + webhookID);
 
-var removeWebhookCard = (ctx, cardID, webhookID) => {
-  trelloAPICall(ctx, 'DELETE', '/1/webhooks/' + webhookID, {}
-    , () => {
-      console.log('trello.sync -- removed webhook ' + webhookID + ' for card ' + cardID);
-    }, (error) => {
-      console.log('trello.sync -- could not remove webhook ' + webhookID + ' fror card ' + cardID + '(' + error + ')');
-    });
-};
+var getWebhooks = (ctx) =>
+  trelloAPICall(ctx, 'GET', '/1/tokens/' + ctx.secrets.api_token + '/webhooks', {});
 
-var getSistersCards = (ctx, cardID, cb) => {
+var getAttachements = (ctx, cardID) =>
   // get attached cards
   trelloAPICall(ctx, 'GET', '/1/cards/' + cardID + '/attachments', {
     fields: 'id,url'
-  }, (attachementsData) => {
+  });
+
+var closeCard = (ctx, cardID) =>
+  trelloAPICall(ctx, 'PUT', '/1/cards/' + cardID, {
+    closed: true
+  });
+
+var removeWebhooksForModel = async (ctx, modelID) => {
+  try {
+    // get all webhooks
+    const webhooksData = await getWebhooks(ctx);
+    const webhooks = JSON.parse(webhooksData);
+    // filter to keep only relevant webhooks
+    const modelWebhooks = webhooks.filter(webhook => (webhook.idModel === modelID && webhook.callbackURL === ctx.meta.webhook_URL));
+    modelWebhooks.forEach(webhook => {
+      var webhookID = webhook.id;
+      // remove webhook
+      removeWebhookCard(ctx, modelID, webhookID);
+    });
+  }
+  catch (err) {
+    throw Error('Could not remove webhooks for modelID ' + modelID);
+  }
+};
+
+var workflowAddMember = async (ctx, cardID) => {
+  try {
+    // copy card and get ID of the sister card
+    const copyData = await copyCard(ctx, cardID);
+    var copyID = JSON.parse(copyData).id;
+    // cross link the cards
+    linkCard(ctx, cardID, copyID);
+    linkCard(ctx, copyID, cardID);
+    // create webhooks
+    webhookCard(ctx, cardID);
+    webhookCard(ctx, copyID);
+  }
+  catch (err) {
+    throw Error('could not complete workflow add member for card ' + cardID);
+  }
+};
+
+var workflowRemoveMember = async (ctx, cardID) => {
+  try {
+    // get attached cards
+    const attachementsData = await getAttachements(ctx, cardID);
     const attachments = JSON.parse(attachementsData);
     const cardsAttachments = attachments.filter(attachment => /https:\/\/trello\.com\/c\/(\w*)/.test(attachment.url));
     cardsAttachments.forEach(attachment => {
+      // get the sisters cards ID
       var copyID = attachment.url.replace('https://trello.com/c/', '');
       var attachmentID = attachment.id;
-      cb(ctx, cardID, copyID, attachmentID);
+      // remove both webhooks
+      removeWebhooksForModel(ctx, copyID);
+      removeWebhooksForModel(ctx, cardID);
+      // archive the linked card
+      closeCard(ctx, copyID);
+      // remove link
+      removeLinkCard(ctx, cardID, attachmentID);
+
     });
-  }, (error) => {
-    console.log('trello.sync -- could not get attachements for ' + cardID + '(' + error + ')');
-  });
-};
-
-var removeAttachmentAndArchive = (ctx, cardID, copyID, attachmentID) => {
-  getWebhooksForModel(ctx, copyID, removeWebhookCard);
-  getWebhooksForModel(ctx, cardID, removeWebhookCard);
-  // Archive the linked card and remove link
-  trelloAPICall(ctx, 'PUT', '/1/cards/' + copyID, {
-    closed: true
-  }, () => {
-    console.log('trello.sync -- archived card ' + copyID);
-    removeLinkCard(ctx, cardID, attachmentID);
-  }, (error) => {
-    console.log('trello.sync -- could not archive the card ' + copyID + '(' + error + ')');
-  });
-
+  }
+  catch (err) {
+    throw Error('could not complete workflow remove member for card ' + cardID);
+  }
 };
 
 
@@ -213,25 +228,8 @@ app.post('/', function (req, res) {
   if (actionType === 'addMemberToCard' &&
       memberID === ctx.meta.ref_member_ID) {
 
-    // Copy card to the target list
-    trelloAPICall(ctx, 'POST', '/1/cards/', {
-      idList: ctx.meta.target_list_ID,
-      idCardSource: cardID,
-      pos: 'top',
-      keepFromSource: ''
-    }, (copyData) => {
-      console.log('trello.sync -- copied card ' + cardID);
+    workflowAddMember(ctx, cardID);
 
-      var copyID = JSON.parse(copyData).id;
-      // cross link the cards
-      linkCard(ctx, cardID, copyID);
-      linkCard(ctx, copyID, cardID);
-      // create webhooks
-      webhookCard(ctx, cardID);
-      webhookCard(ctx, copyID);
-    }, (error) => {
-      console.log('trello.sync -- could not copy the card ' + cardID + '(' + error + ')');
-    });
   }
 
   // Trigger:
@@ -240,9 +238,7 @@ app.post('/', function (req, res) {
   if (actionType === 'removeMemberFromCard' &&
       memberID === ctx.meta.ref_member_ID) {
 
-    // Get the attached card ID and the attachement ID and
-    // remove the attachment and archive card
-    getSistersCards(ctx, cardID, removeAttachmentAndArchive);
+    workflowRemoveMember(ctx, cardID);
   }
 
 
