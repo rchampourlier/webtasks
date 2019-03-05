@@ -1,4 +1,4 @@
-// ## Webtask `trello.sync`
+// ## Webtask `trello.updatesis`
 //
 // This webtask provides automatic card sync between two Trello boards or lists.
 //
@@ -12,14 +12,6 @@
 //   [here](https://trello.com/app-key).
 //   - `api_key`
 //   - `api_token`
-//
-// - This webtask needs to know the webhook url to add, the list where the
-//   card will be copied and the member ID used as a trigger. For
-//   this, you will have to add the following metas. (use trello sandbox to
-//   get the IDs)
-//   - `webhook_URL`
-//   - `target_list_ID`
-//   - `ctx.meta.ref_member_ID`
 //
 // ### Task description
 //
@@ -103,31 +95,6 @@ var trelloAPICall = (ctx, verb, path, params = {}) =>
 /****************************************\
  WORKFLOW FUNCTIONS
 \****************************************/
-var copyCard = (ctx, cardID) =>
-  trelloAPICall(ctx, 'POST', '/1/cards/', {
-    idList: ctx.meta.target_list_ID,
-    idCardSource: cardID,
-    pos: 'top',
-    keepFromSource: ''
-  });
-
-var linkCard = (ctx, cardID1, cardID2) =>
-  trelloAPICall(ctx, 'POST', '/1/cards/' + cardID1 + '/attachments/', {
-    url: 'https://trello.com/c/' + cardID2,
-  });
-
-var removeLinkCard = (ctx, cardID1, attachementID) =>
-  trelloAPICall(ctx, 'DELETE', '/1/cards/' + cardID1 + '/attachments/' + attachementID);
-
-// TODO: only create webhook if it doesn't exists
-var webhookCard = (ctx, cardID) =>
-  trelloAPICall(ctx, 'POST', '/1/webhooks/', {
-      callbackURL: ctx.meta.webhook_URL,
-      idModel: cardID
-    });
-
-var removeWebhook = (ctx, webhookID) =>
-  trelloAPICall(ctx, 'DELETE', '/1/webhooks/' + webhookID);
 
 var getWebhooks = (ctx) =>
   trelloAPICall(ctx, 'GET', '/1/tokens/' + ctx.secrets.api_token + '/webhooks', {});
@@ -138,12 +105,17 @@ var getAttachements = (ctx, cardID) =>
     fields: 'id,url'
   });
 
-var closeCard = (ctx, cardID) =>
-  trelloAPICall(ctx, 'PUT', '/1/cards/' + cardID, {
-    closed: true
+var changeWebhookStatus = (ctx, webhookID, status) =>
+  trelloAPICall(ctx, 'PUT', '/1/webhooks/' + webhookID, {
+    active: status
   });
 
-var removeWebhooksForModel = async (ctx, modelID) => {
+var updateCardStatus = (ctx, cardID, cardStatus) =>
+  trelloAPICall(ctx, 'PUT', '/1/cards/' + cardID, {
+    closed: cardStatus
+  });
+
+var changeWebhooksStatusForModel = async (ctx, modelID, status) => {
   try {
     // get all webhooks
     const webhooksData = await getWebhooks(ctx);
@@ -153,34 +125,31 @@ var removeWebhooksForModel = async (ctx, modelID) => {
     modelWebhooks.forEach(webhook => {
       var webhookID = webhook.id;
       // remove webhook
-      removeWebhook(ctx, webhookID);
+      changeWebhookStatus(ctx, webhookID, status);
     });
   }
   catch (err) {
-    console.error('Could not remove webhooks for modelID ' + modelID);
+    console.eroor('Could not change webhooks status for modelID ' + modelID);
     console.error(err);
   }
 };
 
-var workflowAddMember = async (ctx, cardID) => {
+var updateCardStatusWithoutWebhook = async (ctx, cardID, status) => {
   try {
-    // copy card and get ID of the sister card
-    const copyData = await copyCard(ctx, cardID);
-    var copyID = JSON.parse(copyData).id;
-    // cross link the cards
-    linkCard(ctx, cardID, copyID);
-    linkCard(ctx, copyID, cardID);
-    // create webhooks
-    webhookCard(ctx, cardID);
-    webhookCard(ctx, copyID);
+      // deactivate webhook on sister card
+      await changeWebhooksStatusForModel(ctx, cardID, false);
+      // update the copy card status
+      await updateCardStatus(ctx, cardID, status);
+      // activate webhook on sister card  }
+      await changeWebhooksStatusForModel(ctx, cardID, true);
   }
   catch (err) {
-    console.error('could not complete workflow add member for card ' + cardID);
+    console.error('Could not update card without webhook for ' + cardID);
     console.error(err);
   }
 };
 
-var workflowRemoveMember = async (ctx, cardID) => {
+var workflowToggleCardStatus = async (ctx, cardID, cardStatus) => {
   try {
     // get attached cards
     const attachementsData = await getAttachements(ctx, cardID);
@@ -189,22 +158,15 @@ var workflowRemoveMember = async (ctx, cardID) => {
     cardsAttachments.forEach(attachment => {
       // get the sisters cards ID
       var copyID = attachment.url.replace('https://trello.com/c/', '');
-      var attachmentID = attachment.id;
-      // remove both webhooks
-      removeWebhooksForModel(ctx, copyID);
-      removeWebhooksForModel(ctx, cardID);
-      // archive the linked card
-      closeCard(ctx, copyID);
-      // remove link
-      removeLinkCard(ctx, cardID, attachmentID);
-
+      updateCardStatusWithoutWebhook(ctx, copyID, cardStatus);
     });
   }
   catch (err) {
-    console.error('could not complete workflow remove member for card ' + cardID);
+    console.error('could not complete workflow toggle card status for card ' + cardID);
     console.error(err);
   }
 };
+
 
 
 /****************************************\
@@ -223,26 +185,16 @@ app.post('/', function (req, res) {
   // Main workflow code
   const body = req.body;
   const actionType = body.action.type;
-  const memberID = body.action.data.idMember;
   const cardID = body.action.data.card.id;
+  const cardStatus = body.action.data.card.closed;
 
   // Trigger:
-  //   - new member : "addMemberToCard"
-  //   - the member is the ctx.meta.ref_member_ID
-  if (actionType === 'addMemberToCard' &&
-      memberID === ctx.meta.ref_member_ID) {
+  //   - card updated : "updateCard"
+  //   - the card status was updated (closed/open)
+  if (actionType === 'updateCard' &&
+      cardStatus !== undefined) {
 
-    workflowAddMember(ctx, cardID);
-
-  }
-
-  // Trigger:
-  //   - removed member : "removeMemberFromCard"
-  //   - the member is the ctx.meta.ref_member_ID
-  if (actionType === 'removeMemberFromCard' &&
-      memberID === ctx.meta.ref_member_ID) {
-
-    workflowRemoveMember(ctx, cardID);
+    workflowToggleCardStatus(ctx, cardID, cardStatus);
   }
 
 
