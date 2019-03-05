@@ -61,17 +61,18 @@ var trelloAPICall = (ctx, verb, path, params = {}) =>
       key: ctx.secrets.api_key,
       token: ctx.secrets.api_token,
     };
-    params = _.merge(defaultParams, params);
-    var queryString = serializeQueryString(params);
+    var allParams = _.merge(defaultParams, params);
+    var queryString = serializeQueryString(allParams);
+    var fullPath = path;
 
     if (queryString.length > 0) {
-      path += '?' + queryString;
+      fullPath += '?' + queryString;
     }
 
     const options = {
       hostname: 'api.trello.com',
       port: 443,
-      path: path,
+      path: fullPath,
       method: verb
     };
 
@@ -82,11 +83,11 @@ var trelloAPICall = (ctx, verb, path, params = {}) =>
       });
 
       res.on('end', function () {
-        if (res.statusCode >= 200 || res.statusCode <= 299) {
-          console.log(verb + ' ' + path + ' SUCCESS');
+        if (res.statusCode >= 200 && res.statusCode <= 299) {
+          console.log(verb + ' ' + path + ' with ' + JSON.stringify(params) + ' SUCCESS ');
           resolve(dataStr);
         } else {
-          console.log(verb + ' ' + path + ' FAIL');
+          console.error(verb + ' ' + path + ' with ' + JSON.stringify(params) + ' FAIL');
           reject(res.statusCode + ': ' + dataStr);
         }
       });
@@ -173,7 +174,8 @@ var workflowAddMember = async (ctx, cardID) => {
     webhookCard(ctx, copyID);
   }
   catch (err) {
-    throw Error('could not complete workflow add member for card ' + cardID);
+    console.error('could not complete workflow add member for card ' + cardID);
+    console.error(err);
   }
 };
 
@@ -198,7 +200,8 @@ var workflowRemoveMember = async (ctx, cardID) => {
     });
   }
   catch (err) {
-    throw Error('could not complete workflow remove member for card ' + cardID);
+    console.error('could not complete workflow remove member for card ' + cardID);
+    console.error(err);
   }
 };
 
