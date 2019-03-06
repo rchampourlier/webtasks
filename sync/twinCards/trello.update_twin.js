@@ -1,4 +1,4 @@
-// ## Webtask `trello.updatesis`
+// ## Webtask `trello.update_twin`
 //
 // This webtask provides automatic card sync between two Trello boards or lists.
 //
@@ -17,12 +17,9 @@
 //
 // #### Trigger conditions
 //
-// When a specific user is added on a card,
-// copy the card to another board
-// and add a link between cards
+// When status is updated on one card (card archived or unarchived),
+// the twin card is updated too
 //
-// When the specific user is removed from card,
-// delete the twin card in another board
 
 /****************************************\
  INITIALIZE EXPRESS APP
@@ -136,11 +133,11 @@ var changeWebhooksStatusForModel = async (ctx, modelID, status) => {
 
 var updateCardStatusWithoutWebhook = async (ctx, cardID, status) => {
   try {
-      // deactivate webhook on sister card
+      // deactivate webhook on twin card
       await changeWebhooksStatusForModel(ctx, cardID, false);
       // update the copy card status
       await updateCardStatus(ctx, cardID, status);
-      // activate webhook on sister card  }
+      // activate webhook on twin card  }
       await changeWebhooksStatusForModel(ctx, cardID, true);
   }
   catch (err) {
@@ -156,7 +153,7 @@ var workflowToggleCardStatus = async (ctx, cardID, cardStatus) => {
     const attachments = JSON.parse(attachementsData);
     const cardsAttachments = attachments.filter(attachment => /https:\/\/trello\.com\/c\/(\w*)/.test(attachment.url));
     cardsAttachments.forEach(attachment => {
-      // get the sisters cards ID
+      // get the twin cards ID
       var copyID = attachment.url.replace('https://trello.com/c/', '');
       updateCardStatusWithoutWebhook(ctx, copyID, cardStatus);
     });
@@ -174,13 +171,13 @@ var workflowToggleCardStatus = async (ctx, cardID, cardStatus) => {
 \****************************************/
 
 app.head('/', function(req, res) {
-  console.log('trello.sync -- HEAD /');
+  console.log('trello.update_twin -- HEAD /');
   res.sendStatus(200);
 });
 
 app.post('/', function (req, res) {
   const ctx = req.webtaskContext;
-  console.log('trello.sync -- POST /');
+  console.log('trello.update_twin -- POST /');
 
   // Main workflow code
   const body = req.body;

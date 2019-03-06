@@ -1,4 +1,4 @@
-// ## Webtask `trello.sync`
+// ## Webtask `trello.create_twin`
 //
 // This webtask provides automatic card sync between two Trello boards or lists.
 //
@@ -17,9 +17,9 @@
 //   card will be copied and the member ID used as a trigger. For
 //   this, you will have to add the following metas. (use trello sandbox to
 //   get the IDs)
-//   - `webhook_URL`
-//   - `target_list_ID`
-//   - `ctx.meta.ref_member_ID`
+//   - `webhook_URL` --> url to update_twin functions
+//   - `target_list_ID` --> list where the twin card will be created
+//   - `ref_member_ID` --> user that will be added to a card to be copied
 //
 // ### Task description
 //
@@ -27,10 +27,11 @@
 //
 // When a specific user is added on a card,
 // copy the card to another board
-// and add a link between cards
+// add a link between cards
+// add webhooks on both cards for synchronisation
 //
 // When the specific user is removed from card,
-// delete the twin card in another board
+// delete the twin card, links and webhooks
 
 /****************************************\
  INITIALIZE EXPRESS APP
@@ -164,7 +165,7 @@ var removeWebhooksForModel = async (ctx, modelID) => {
 
 var workflowAddMember = async (ctx, cardID) => {
   try {
-    // copy card and get ID of the sister card
+    // copy card and get ID of the twin card
     const copyData = await copyCard(ctx, cardID);
     var copyID = JSON.parse(copyData).id;
     // cross link the cards
@@ -187,7 +188,7 @@ var workflowRemoveMember = async (ctx, cardID) => {
     const attachments = JSON.parse(attachementsData);
     const cardsAttachments = attachments.filter(attachment => /https:\/\/trello\.com\/c\/(\w*)/.test(attachment.url));
     cardsAttachments.forEach(attachment => {
-      // get the sisters cards ID
+      // get the twin cards ID
       var copyID = attachment.url.replace('https://trello.com/c/', '');
       var attachmentID = attachment.id;
       // remove both webhooks
@@ -212,13 +213,13 @@ var workflowRemoveMember = async (ctx, cardID) => {
 \****************************************/
 
 app.head('/', function(req, res) {
-  console.log('trello.sync -- HEAD /');
+  console.log('trello.create_twin -- HEAD /');
   res.sendStatus(200);
 });
 
 app.post('/', function (req, res) {
   const ctx = req.webtaskContext;
-  console.log('trello.sync -- POST /');
+  console.log('trello.create_twin -- POST /');
 
   // Main workflow code
   const body = req.body;
