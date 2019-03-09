@@ -70,7 +70,7 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
     });
 
     res.on('end', function () {
-      if (res.statusCode === 200) {
+      if (res.statusCode >= 200 && res.statusCode <= 299) {
         onSuccess(dataStr);
       } else {
         onError(res.statusCode + ': ' + dataStr);
