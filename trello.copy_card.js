@@ -5,7 +5,7 @@
 // It copies:
 //   - the card specified by the `source_card_id` param, with its
 //     checklists, labels and attachments,
-//   - to the board list specified by the `target_list_id` param 
+//   - to the board list specified by the `target_list_id` param
 //     (at the top position).
 //
 // ### Requirements
@@ -25,7 +25,7 @@
 //   -d '{"source_card_id": "REPLACE", "target_list_id": "REPLACE"}
 
 /****************************************\
- INITIALIZE EXPRESS APP 
+ INITIALIZE EXPRESS APP
 \****************************************/
 var express = require('express');
 var bodyParser = require('body-parser');
@@ -70,7 +70,11 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
     });
 
     res.on('end', function () {
-      onSuccess(dataStr);
+      if (res.statusCode >= 200 && res.statusCode <= 299) {
+        onSuccess(dataStr);
+      } else {
+        onError(res.statusCode + ': ' + dataStr);
+      }
     });
   });
 
@@ -94,7 +98,7 @@ var copyCard = function(ctx, sourceCardId, targetListId) {
 };
 
 /****************************************\
- EXPRESS ENDPOINTS 
+ EXPRESS ENDPOINTS
 \****************************************/
 
 app.head('/', function(req, res) {
@@ -116,7 +120,7 @@ app.post('/', function(req, res) {
 });
 
 /****************************************\
- PUBLISH EXPRESS ENDPOINTS 
+ PUBLISH EXPRESS ENDPOINTS
 \****************************************/
 var Webtask = require('webtask-tools');
 module.exports = Webtask.fromExpress(app);
