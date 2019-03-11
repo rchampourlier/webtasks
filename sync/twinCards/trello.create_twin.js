@@ -12,14 +12,13 @@
 //   [here](https://trello.com/app-key).
 //   - `api_key`
 //   - `api_token`
-//
 // - This webtask needs to know the webhook url to add, the list where the
 //   card will be copied and the member ID used as a trigger. For
 //   this, you will have to add the following metas. (use trello sandbox to
 //   get the IDs)
-//   - `webhook_URL` --> url to update_twin functions
+//   - `webhook_URL` --> url to update_twin webtask
 //   - `target_list_ID` --> list where the twin card will be created
-//   - `ref_member_ID` --> user that will be added to a card to be copied
+//   - `ref_member_ID` --> trello user that will trigger the sync when assigned to the card
 //
 // ### Task description
 //
@@ -117,23 +116,23 @@ var linkCard = (ctx, cardID1, cardID2) =>
     url: 'https://trello.com/c/' + cardID2,
   });
 
-var removeLinkCard = (ctx, cardID1, attachementID) =>
-  trelloAPICall(ctx, 'DELETE', '/1/cards/' + cardID1 + '/attachments/' + attachementID);
+var removeLinkCard = (ctx, cardID1, attachmentID) =>
+  trelloAPICall(ctx, 'DELETE', '/1/cards/' + cardID1 + '/attachments/' + attachmentID);
 
 // TODO: only create webhook if it doesn't exists
-var webhookCard = (ctx, cardID) =>
+var createWebhookOnModel = (ctx, modelID) =>
   trelloAPICall(ctx, 'POST', '/1/webhooks/', {
       callbackURL: ctx.meta.webhook_URL,
-      idModel: cardID
+      idModel: modelID
     });
 
-var removeWebhook = (ctx, webhookID) =>
+var deleteWebhook = (ctx, webhookID) =>
   trelloAPICall(ctx, 'DELETE', '/1/webhooks/' + webhookID);
 
 var getWebhooks = (ctx) =>
   trelloAPICall(ctx, 'GET', '/1/tokens/' + ctx.secrets.api_token + '/webhooks', {});
 
-var getAttachements = (ctx, cardID) =>
+var getAttachments = (ctx, cardID) =>
   // get attached cards
   trelloAPICall(ctx, 'GET', '/1/cards/' + cardID + '/attachments', {
     fields: 'id,url'
@@ -144,7 +143,7 @@ var closeCard = (ctx, cardID) =>
     closed: true
   });
 
-var removeWebhooksForModel = async (ctx, modelID) => {
+var deleteWebhooksOnModel = async (ctx, modelID) => {
   try {
     // get all webhooks
     const webhooksData = await getWebhooks(ctx);
@@ -154,7 +153,7 @@ var removeWebhooksForModel = async (ctx, modelID) => {
     modelWebhooks.forEach(webhook => {
       var webhookID = webhook.id;
       // remove webhook
-      removeWebhook(ctx, webhookID);
+      deleteWebhook(ctx, webhookID);
     });
   }
   catch (err) {
@@ -163,7 +162,7 @@ var removeWebhooksForModel = async (ctx, modelID) => {
   }
 };
 
-var workflowAddMember = async (ctx, cardID) => {
+var workflowOnAddMember = async (ctx, cardID) => {
   try {
     // copy card and get ID of the twin card
     const copyData = await copyCard(ctx, cardID);
@@ -172,8 +171,8 @@ var workflowAddMember = async (ctx, cardID) => {
     linkCard(ctx, cardID, copyID);
     linkCard(ctx, copyID, cardID);
     // create webhooks
-    webhookCard(ctx, cardID);
-    webhookCard(ctx, copyID);
+    createWebhookOnModel(ctx, cardID);
+    createWebhookOnModel(ctx, copyID);
   }
   catch (err) {
     console.error('could not complete workflow add member for card ' + cardID);
@@ -181,19 +180,19 @@ var workflowAddMember = async (ctx, cardID) => {
   }
 };
 
-var workflowRemoveMember = async (ctx, cardID) => {
+var workflowOnRemoveMember = async (ctx, cardID) => {
   try {
     // get attached cards
-    const attachementsData = await getAttachements(ctx, cardID);
-    const attachments = JSON.parse(attachementsData);
+    const attachmentsData = await getAttachments(ctx, cardID);
+    const attachments = JSON.parse(attachmentsData);
     const cardsAttachments = attachments.filter(attachment => /https:\/\/trello\.com\/c\/(\w*)/.test(attachment.url));
     cardsAttachments.forEach(attachment => {
       // get the twin cards ID
       var copyID = attachment.url.replace('https://trello.com/c/', '');
       var attachmentID = attachment.id;
       // remove both webhooks
-      removeWebhooksForModel(ctx, copyID);
-      removeWebhooksForModel(ctx, cardID);
+      deleteWebhooksOnModel(ctx, copyID);
+      deleteWebhooksOnModel(ctx, cardID);
       // archive the linked card
       closeCard(ctx, copyID);
       // remove link
@@ -232,9 +231,7 @@ app.post('/', function (req, res) {
   //   - the member is the ctx.meta.ref_member_ID
   if (actionType === 'addMemberToCard' &&
       memberID === ctx.meta.ref_member_ID) {
-
-    workflowAddMember(ctx, cardID);
-
+    workflowOnAddMember(ctx, cardID);
   }
 
   // Trigger:
@@ -242,8 +239,7 @@ app.post('/', function (req, res) {
   //   - the member is the ctx.meta.ref_member_ID
   if (actionType === 'removeMemberFromCard' &&
       memberID === ctx.meta.ref_member_ID) {
-
-    workflowRemoveMember(ctx, cardID);
+    workflowOnRemoveMember(ctx, cardID);
   }
 
 

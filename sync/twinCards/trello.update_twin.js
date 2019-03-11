@@ -96,7 +96,7 @@ var trelloAPICall = (ctx, verb, path, params = {}) =>
 var getWebhooks = (ctx) =>
   trelloAPICall(ctx, 'GET', '/1/tokens/' + ctx.secrets.api_token + '/webhooks', {});
 
-var getAttachements = (ctx, cardID) =>
+var getAttachments = (ctx, cardID) =>
   // get attached cards
   trelloAPICall(ctx, 'GET', '/1/cards/' + cardID + '/attachments', {
     fields: 'id,url'
@@ -146,11 +146,11 @@ var updateCardStatusWithoutWebhook = async (ctx, cardID, status) => {
   }
 };
 
-var workflowToggleCardStatus = async (ctx, cardID, cardStatus) => {
+var workflowOnToggleCardStatus = async (ctx, cardID, cardStatus) => {
   try {
     // get attached cards
-    const attachementsData = await getAttachements(ctx, cardID);
-    const attachments = JSON.parse(attachementsData);
+    const attachmentsData = await getAttachments(ctx, cardID);
+    const attachments = JSON.parse(attachmentsData);
     const cardsAttachments = attachments.filter(attachment => /https:\/\/trello\.com\/c\/(\w*)/.test(attachment.url));
     cardsAttachments.forEach(attachment => {
       // get the twin cards ID
@@ -163,8 +163,6 @@ var workflowToggleCardStatus = async (ctx, cardID, cardStatus) => {
     console.error(err);
   }
 };
-
-
 
 /****************************************\
  EXPRESS ENDPOINTS
@@ -190,8 +188,7 @@ app.post('/', function (req, res) {
   //   - the card status was updated (closed/open)
   if (actionType === 'updateCard' &&
       cardStatus !== undefined) {
-
-    workflowToggleCardStatus(ctx, cardID, cardStatus);
+    workflowOnToggleCardStatus(ctx, cardID, cardStatus);
   }
 
 
