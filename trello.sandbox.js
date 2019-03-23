@@ -48,8 +48,12 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
       dataStr += chunk;
     });
 
-    res.on('end', function() {
-      onSuccess(dataStr);
+    res.on('end', function () {
+      if (res.statusCode >= 200 && res.statusCode <= 299) {
+        onSuccess(dataStr);
+      } else {
+        onError(res.statusCode + ': ' + dataStr);
+      }
     });
   });
 

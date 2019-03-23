@@ -11,16 +11,16 @@
 // - This webtask needs to be capable of performing Trello API calls. For
 //   this, you will have to add the following secrets. You can get both
 //   [here](https://trello.com/app-key).
-//   - `trello--api_key`
-//   - `trello--api_token`
+//   - `api_key`
+//   - `api_token`
 // - This webtask relies on another webtask (`trello.copy_card`) that must
 //   be deployed and callable from this one. Add the `webtask_host` secret
 //   with the Webtask host where it is deployed (e.g.
 //   `https://wt-REPLACE.sandbox.auth0-extend.com)`.
 //
 // ### Task description
-//  
-// 01. Card created in "Scheduled" list --> set due date to the due 
+//
+// 01. Card created in "Scheduled" list --> set due date to the due
 //     date of the card above or today if first in the list
 //
 // 02. Due date added or changed --> move to "Scheduled" list
@@ -28,7 +28,7 @@
 //
 // 03. Due date removed --> move to "Tasks" with "asap" label
 //
-// 04. Card moved from the "Scheduled" list --> remove due date, add 
+// 04. Card moved from the "Scheduled" list --> remove due date, add
 //     "asap" label
 //
 // 05. Card move to the "Scheduled" list --> trigger sort by due date
@@ -37,7 +37,7 @@
 //   - Add "asap" label
 
 /****************************************\
- INITIALIZE EXPRESS APP 
+ INITIALIZE EXPRESS APP
 \****************************************/
 var express = require('express');
 var bodyParser = require('body-parser');
@@ -153,8 +153,12 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
       dataStr += chunk;
     });
 
-    res.on('end', function() {
-      onSuccess(dataStr);
+    res.on('end', function () {
+      if (res.statusCode >= 200 && res.statusCode <= 299) {
+        onSuccess(dataStr);
+      } else {
+        onError(res.statusCode + ': ' + dataStr);
+      }
     });
   });
 
@@ -166,7 +170,7 @@ var trelloAPICall = (ctx, verb, path, params, onSuccess, onError) => {
 };
 
 /****************************************\
- EXPRESS ENDPOINTS 
+ EXPRESS ENDPOINTS
 \****************************************/
 
 app.head('/', function(req, res) {
@@ -187,7 +191,7 @@ app.post('/', function(req, res) {
   var boardID, cardID, listID;
   switch (actionType) {
 
-    // 01. Card created in "Scheduled" list --> set due date to the due 
+    // 01. Card created in "Scheduled" list --> set due date to the due
     //     date of the card above or today if first in the list
     case 'createCard':
     // Check if in "Scheduled" list
@@ -243,14 +247,14 @@ app.post('/', function(req, res) {
     // 02. Due date added or changed --> move to "Scheduled" list
     //     below last card with due date earlier
     // 03. Due date removed --> move to "Tasks" with "asap" label
-    // 04. Card moved from the "Scheduled" list --> remove due date, add 
+    // 04. Card moved from the "Scheduled" list --> remove due date, add
     //     "asap" label
     // 05. Card moved to the "Scheduled" list --> trigger sort by due date
     case 'updateCard':
     boardID = body.model.id;
     cardID = body.action.data.card.id;
 
-    // Due date added, changed or removed (`action.data.old.due` is set) 
+    // Due date added, changed or removed (`action.data.old.due` is set)
     if (body.action.data.old.due !== undefined) {
       listID = body.action.data.list.id; // defined in this context (e.g. not set if the card is moved).
 
@@ -309,7 +313,7 @@ app.post('/', function(req, res) {
       }
     }
 
-    // 04. Card moved from the "Scheduled" list --> remove due date, add 
+    // 04. Card moved from the "Scheduled" list --> remove due date, add
     //     "asap" label
     if (body.action.data.listAfter !== undefined && body.action.data.listBefore.name === "Scheduled") {
       // Card moved from "Scheduled" list
@@ -339,7 +343,7 @@ app.post('/', function(req, res) {
 });
 
 /****************************************\
- PUBLISH EXPRESS ENDPOINTS 
+ PUBLISH EXPRESS ENDPOINTS
 \****************************************/
 var Webtask = require('webtask-tools');
 module.exports = Webtask.fromExpress(app);
